@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yvs_Prod Transport Firebase</title>
+<style>
+body{font-family:Arial;margin:0;background:#f4f7f5}
+header{background:#064e3b;color:white;padding:20px}
+.container{max-width:1100px;margin:auto;padding:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:white;padding:20px;border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+input,select,textarea{width:100%;padding:12px;margin:8px 0 16px;border:1px solid #ccc;border-radius:10px}
+button{background:#065f46;color:white;border:none;padding:12px 18px;border-radius:12px;font-weight:bold;cursor:pointer}
+.badge{background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:bold}
+#annonces{display:grid;gap:16px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+<div class="container">
+<h1>Yvs_Prod Transport</h1>
+<p>Firebase connecté</p>
+</div>
+</header>
+
+<div class="container">
+<div class="grid">
+
+<div class="card">
+<h2>Publier une annonce</h2>
+
+<label>Nom</label>
+<input id="nom">
+
+<label>Téléphone</label>
+<input id="telephone">
+
+<label>Ville</label>
+<input id="ville">
+
+<label>Catégorie</label>
+<select id="categorie">
+<option>VTC</option>
+<option>Fourgon</option>
+<option>Camion</option>
+<option>Tricycle</option>
+</select>
+
+<label>Service</label>
+<select id="service">
+<option>Déménagement</option>
+<option>Transport de marchandises</option>
+<option>Courses de personnes</option>
+<option>Approvisionnement</option>
+</select>
+
+<label>Description</label>
+<textarea id="description"></textarea>
+
+<button onclick="ajouterAnnonce()">Publier</button>
+
+</div>
+
+<div class="card">
+<h2>Annonces</h2>
+<div id="annonces"></div>
+</div>
+
+</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCLKw23aA-ZOKLWKVUDIQtKQhfeDqWueZs",
+  authDomain: "yvpro-f6f87.firebaseapp.com",
+  projectId: "yvpro-f6f87",
+  storageBucket: "yvpro-f6f87.firebasestorage.app",
+  messagingSenderId: "795836828328",
+  appId: "1:795836828328:web:a5d02cb801342026a4d09d"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.ajouterAnnonce = async function() {
+  await addDoc(collection(db, "annonces"), {
+    nom: document.getElementById("nom").value,
+    telephone: document.getElementById("telephone").value,
+    ville: document.getElementById("ville").value,
+    categorie: document.getElementById("categorie").value,
+    service: document.getElementById("service").value,
+    description: document.getElementById("description").value
+  });
+
+  alert("Annonce publiée");
+};
+
+const annoncesDiv = document.getElementById("annonces");
+
+onSnapshot(collection(db, "annonces"), (snapshot) => {
+  annoncesDiv.innerHTML = "";
+
+  snapshot.forEach((doc) => {
+    const a = doc.data();
+
+    annoncesDiv.innerHTML += `
+      <div class="card">
+        <span class="badge">${a.categorie}</span>
+        <h3>${a.nom}</h3>
+        <p><b>Ville :</b> ${a.ville}</p>
+        <p><b>Service :</b> ${a.service}</p>
+        <p>${a.description}</p>
+        <a href="tel:${a.telephone}">
+          <button>Appeler</button>
+        </a>
+      </div>
+    `;
+  });
+});
+</script>
+
+</body>
+</html>
