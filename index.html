@@ -131,6 +131,10 @@ footer{background:#022c22;color:white;text-align:center;padding:24px 0}
         <div><label>Nom complet</label><input id="nom"></div>
         <div><label>Téléphone WhatsApp</label><input id="telephone" placeholder="+237..."></div>
         <div><label>Email</label><input id="email" type="email"></div>
+        <div>
+  <label>Mot de passe prestataire</label>
+  <input id="prestatairePassword" type="password" placeholder="Créer un mot de passe">
+</div>
         <div><label>Lien photo de profil</label><input id="profilePhotoUrl" placeholder="Lien photo du prestataire"></div>
         <div><label>Ville</label><input id="ville"></div>
         <div><label>Type de véhicule</label><select id="categorie"><option>VTC</option><option>Fourgon</option><option>Camion</option><option>Tricycle</option></select></div>
@@ -194,6 +198,33 @@ footer{background:#022c22;color:white;text-align:center;padding:24px 0}
   </div>
 </section>
 
+  <section id="connexion-prestataire" class="form-section">
+  <div class="container">
+    <div class="center">
+      <h2>Connexion prestataire</h2>
+      <p>Connectez-vous pour gérer vos annonces.</p>
+    </div>
+
+    <div class="form-box">
+      <label>Email</label>
+      <input id="prestataireLoginEmail" type="email">
+
+      <label>Mot de passe</label>
+      <input id="prestataireLoginPassword" type="password">
+
+      <button class="btn" id="prestataireLoginBtn" type="button">
+        Se connecter
+      </button>
+
+      <div id="prestataireLoginSuccess" class="success">
+        Connexion réussie.
+      </div>
+
+      <div id="prestataireLoginError" class="error"></div>
+    </div>
+  </div>
+</section>
+
 <section id="admin" class="admin">
   <div class="container">
     <div class="center">
@@ -243,7 +274,14 @@ footer{background:#022c22;color:white;text-align:center;padding:24px 0}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword as loginPrestataire
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCLKw23aA-ZOKLWKVUDIQtKQhfeDqWueZs",
@@ -351,10 +389,29 @@ function showDetail(id) {
 
 async function ajouterAnnonce() {
   try {
+const email = $("email").value.trim();
+const password = $("prestatairePassword").value;
+
+if(!email || !password){
+  alert("Email et mot de passe obligatoires.");
+  return;
+}
+
+let userCredential;
+
+try {
+  userCredential = await createUserWithEmailAndPassword(auth, email, password);
+} catch(e){
+  alert("Impossible de créer le compte : " + (e.code || e.message));
+  return;
+}
+
+const uid = userCredential.user.uid;
     const duree = Number($("abonnement").value);
     const now = new Date();
     const exp = new Date(now.getTime()+duree*86400000);
     await addDoc(collection(db,"annonces"), {
+      uid: uid,
       nom:$("nom").value,
       telephone:$("telephone").value,
       email:$("email").value,
@@ -603,6 +660,8 @@ document.addEventListener("click", (e)=> {
 });
 
 $("sendAnnonceBtn").addEventListener("click", ajouterAnnonce);
+$("prestataireLoginBtn")
+  .addEventListener("click", connexionPrestataire);
 $("showPassword").addEventListener("change",()=>{$("adminPassword").type=$("showPassword").checked?"text":"password"});
 $("loginBtn").addEventListener("click", connexionAdmin);
 $("resetAuthBtn").addEventListener("click", async()=>{try{await signOut(auth)}catch(e){} $("adminPassword").value=""; $("loginError").innerText="Connexion réinitialisée."; $("loginError").style.display="block"; $("loginBox").style.display="block"; $("adminPanel").style.display="none";});
@@ -618,6 +677,75 @@ $("saveSubscriberEditBtn").addEventListener("click", saveSubscriberEdit);
 $("cancelSubscriberEditBtn").addEventListener("click",()=>{$("subscriberEditBox").style.display="none";});
 $("adminPanel").addEventListener("click", handleAdminClick);
 
+function renderSubscriberByUid(){
+
+  if(!currentPrestataire){
+    return;
+  }
+
+  $("subscriberResults").innerHTML = "";
+
+  const found = lastDocs.filter(x =>
+    x.data.uid === currentPrestataire.uid
+  );
+
+  if(found.length === 0){
+    $("subscriberResults").innerHTML = "<p>Aucune annonce.</p>";
+    return;
+  }
+
+  found.forEach(x => {
+    const a = x.data;
+
+    $("subscriberResults").innerHTML += `
+      <div class="admin-card">
+        <h3>${a.nom || "Annonce"}</h3>
+          <p>
+          <b>Ville :</b> ${a.ville || ""}<br>
+          <b>Service :</b> ${a.service || ""}<br>
+          <b>Statut :</b> ${a.statut || "en attente"}
+        </p>
+
+        <button class="btn gold"
+          onclick="showDetail('${x.id}')">
+          Voir la fiche détail
+        </button>
+
+        <button class="btn"
+          onclick="openSubscriberEdit('${x.id}')">
+          Modifier
+        </button>
+
+        <button class="btn blue"
+          onclick="demanderRenouvellement('${x.id}')">
+          Demander renouvellement
+        </button>
+      </div>
+    `;
+  });
+}
+let currentPrestataire = null;
+
+async function connexionPrestataire(){
+  try {
+    const email = $("prestataireLoginEmail").value.trim();
+    const password = $("prestataireLoginPassword").value;
+
+    const userCredential = await loginPrestataire(auth, email, password);
+
+    currentPrestataire = userCredential.user;
+
+    $("prestataireLoginSuccess").style.display = "block";
+    $("prestataireLoginError").style.display = "none";
+
+    renderSubscriberByUid();
+
+  } catch(e){
+    console.error(e);
+    $("prestataireLoginError").innerText = e.code || e.message;
+    $("prestataireLoginError").style.display = "block";
+  }
+}
 onAuthStateChanged(auth,(user)=>{
   if(user && user.email===ADMIN_EMAIL) {
     adminOpen=true;
